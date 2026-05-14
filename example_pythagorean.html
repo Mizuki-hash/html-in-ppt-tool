@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>勾股定理可视化</title>
+  <style>
+    body { margin: 0; font-family: "Microsoft YaHei", Arial, sans-serif; background: #f6f7fb; color: #172033; }
+    .stage { width: 100vw; height: 100vh; display: grid; grid-template-columns: 1.2fr .8fr; gap: 24px; padding: 32px; box-sizing: border-box; }
+    .panel { background: white; border-radius: 18px; box-shadow: 0 12px 36px rgba(30, 41, 59, .12); padding: 24px; }
+    h1 { margin: 0 0 12px; font-size: 34px; }
+    svg { width: 100%; height: calc(100% - 52px); border-radius: 14px; background: #fbfdff; border: 1px solid #dbe3ef; }
+    label { display: block; margin-top: 24px; font-size: 20px; }
+    input { width: 90%; }
+    .formula { margin-top: 28px; font-size: 28px; line-height: 1.8; font-weight: 700; }
+    .note { margin-top: 24px; font-size: 19px; line-height: 1.7; color: #475569; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="panel">
+      <h1>勾股定理可视化</h1>
+      <svg id="svg" viewBox="0 0 760 560"></svg>
+    </div>
+    <div class="panel">
+      <label>直角边 a：<b id="aValue"></b></label>
+      <input id="aSlider" type="range" min="2" max="10" value="3" step="1">
+      <label>直角边 b：<b id="bValue"></b></label>
+      <input id="bSlider" type="range" min="2" max="10" value="4" step="1">
+      <div class="formula" id="formula"></div>
+      <div class="note">拖动滑块观察三个正方形面积。两个直角边上的正方形面积之和，等于斜边上的正方形面积。</div>
+    </div>
+  </div>
+  <script>
+    const svg = document.getElementById("svg");
+    const aSlider = document.getElementById("aSlider");
+    const bSlider = document.getElementById("bSlider");
+    const aValue = document.getElementById("aValue");
+    const bValue = document.getElementById("bValue");
+    const formula = document.getElementById("formula");
+    function el(tag, attrs) {
+      const x = document.createElementNS("http://www.w3.org/2000/svg", tag);
+      Object.entries(attrs).forEach(([k, v]) => x.setAttribute(k, v));
+      return x;
+    }
+    function pts(points) { return points.map(p => `${p.x},${p.y}`).join(" "); }
+    function text(s, x, y, size = 22) {
+      const t = el("text", { x, y, "font-size": size, "text-anchor": "middle", "dominant-baseline": "middle", fill: "#172033", "font-weight": 800 });
+      t.textContent = s; svg.appendChild(t);
+    }
+    function draw() {
+      svg.innerHTML = "";
+      const a = Number(aSlider.value), b = Number(bSlider.value), c = Math.sqrt(a*a + b*b);
+      aValue.textContent = a; bValue.textContent = b;
+      formula.innerHTML = `a² + b² = c²<br>${a*a} + ${b*b} = ${(c*c).toFixed(0)}<br>c = ${c.toFixed(2)}`;
+      const scale = 34, A = { x: 260, y: 350 }, B = { x: 260 + a*scale, y: 350 }, C = { x: 260, y: 350 - b*scale };
+      const squareA = [A, B, {x:B.x, y:B.y+a*scale}, {x:A.x, y:A.y+a*scale}];
+      const squareB = [A, C, {x:C.x-b*scale, y:C.y}, {x:A.x-b*scale, y:A.y}];
+      const nx = -(C.y - B.y), ny = C.x - B.x;
+      const squareC = [B, C, {x:C.x+nx, y:C.y+ny}, {x:B.x+nx, y:B.y+ny}];
+      [[squareA, "#ffd166", `a²=${a*a}`], [squareB, "#8be28b", `b²=${b*b}`], [squareC, "#8eb8ff", `c²=${(c*c).toFixed(0)}`]].forEach(([p, fill, label]) => {
+        svg.appendChild(el("polygon", { points: pts(p), fill, stroke: "#172033", "stroke-width": 3, opacity: .82 }));
+        const cx = p.reduce((s, q) => s + q.x, 0) / 4, cy = p.reduce((s, q) => s + q.y, 0) / 4;
+        text(label, cx, cy);
+      });
+      svg.appendChild(el("polygon", { points: pts([A, B, C]), fill: "white", stroke: "#0f172a", "stroke-width": 4 }));
+      svg.appendChild(el("polyline", { points: `${A.x+24},${A.y} ${A.x+24},${A.y-24} ${A.x},${A.y-24}`, fill: "none", stroke: "#0f172a", "stroke-width": 3 }));
+      text(`a=${a}`, (A.x+B.x)/2, A.y-26); text(`b=${b}`, A.x+36, (A.y+C.y)/2); text(`c=${c.toFixed(2)}`, (B.x+C.x)/2+42, (B.y+C.y)/2-20);
+    }
+    aSlider.addEventListener("input", draw); bSlider.addEventListener("input", draw); draw();
+  </script>
+</body>
+</html>

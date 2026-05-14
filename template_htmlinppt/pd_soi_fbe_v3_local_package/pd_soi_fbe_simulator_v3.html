@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PD-SOI 交互式 FBE 物理过程模拟器 V3</title>
+  <style>
+    :root{
+      --bg:#f4f7fb;--card:#ffffff;--ink:#142033;--muted:#657489;--line:#d8e0ea;
+      --blue:#2563eb;--red:#ef4444;--amber:#f59e0b;--green:#10b981;--violet:#7c3aed;
+      --soft-blue:#eff6ff;--soft-red:#fef2f2;--soft-green:#ecfdf5;--shadow:0 18px 48px rgba(15,23,42,.13)
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",system-ui,-apple-system,Segoe UI,sans-serif}
+    body{background:radial-gradient(circle at 12% 10%,rgba(37,99,235,.14),transparent 28%),radial-gradient(circle at 88% 8%,rgba(245,158,11,.14),transparent 24%),linear-gradient(180deg,#fbfdff,#eef3f8)}
+    .stage{width:100vw;height:100vh;padding:14px;display:grid;grid-template-rows:auto 1fr auto;gap:9px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+    .title{margin:0;font-size:clamp(21px,2.15vw,32px);font-weight:950;letter-spacing:-.04em;line-height:1.08}
+    .subtitle{margin:4px 0 0;color:var(--muted);font-size:12.5px;line-height:1.38;max-width:980px}
+    .topchips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:360px}
+    .chip{padding:6px 9px;border-radius:999px;background:#fff;border:1px solid var(--line);box-shadow:0 8px 20px rgba(15,23,42,.055);font-size:11.5px;font-weight:800;color:#334155;white-space:nowrap}
+    .main{min-height:0;display:grid;grid-template-columns:var(--pd-main-cols,1.08fr .92fr);gap:10px}
+    .card{background:var(--pd-card-bg,rgba(255,255,255,.95));border:1px solid var(--pd-card-border,rgba(148,163,184,.36));border-radius:var(--pd-card-radius,22px);box-shadow:var(--pd-card-shadow,var(--shadow));overflow:hidden;min-height:0}
+    .left{display:grid;grid-template-rows:var(--pd-left-rows,minmax(260px,1fr) auto auto);gap:9px;padding:12px;min-width:0}
+    .right{display:grid;grid-template-rows:var(--pd-right-rows,1.12fr .88fr);gap:9px;padding:12px;min-width:0}
+    .box{position:relative;min-height:0;border-radius:var(--pd-box-radius,17px);border:1px solid var(--line);background:linear-gradient(180deg,var(--pd-box-bg,#fff),var(--pd-box-bg2,#f9fbff));overflow:hidden;display:flex;flex-direction:column;padding:10px 12px 12px}
+    canvas{width:100%;height:100%;display:block;flex:1;min-height:0;border-radius:var(--pd-canvas-radius,12px)}
+    .boxTitle{position:static;z-index:2;font-size:calc(13px * var(--pd-font-scale,1));font-weight:950;color:var(--ink);line-height:1.25;white-space:normal}
+    .boxSub{position:static;z-index:2;font-size:calc(11px * var(--pd-font-scale,1));color:var(--muted);line-height:1.35;margin-top:2px;white-space:normal}
+    .explain{position:static;z-index:2;width:auto;margin:7px 0 8px;padding:8px 10px;border-radius:12px;background:var(--pd-note-bg,#f8fafc);border:1px solid var(--pd-note-border,rgba(148,163,184,.42));box-shadow:none;font-size:calc(11.5px * var(--pd-font-scale,1));line-height:1.42;color:#465569}
+    .metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}
+    .metric{background:#fff;border:1px solid var(--line);border-radius:15px;padding:8px 9px;min-width:0;min-height:62px}
+    .metric .k{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .metric .v{font-size:16px;font-weight:950;font-variant-numeric:tabular-nums;margin-top:3px;white-space:nowrap;line-height:1.12}
+    #mRegion{font-size:13px;white-space:normal;line-height:1.12;word-break:keep-all}
+    .metric small{font-size:9.5px;color:#64748b;font-weight:800}
+    .controlStrip{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .panel{background:#fff;border:1px solid var(--line);border-radius:17px;padding:10px;min-width:0}
+    .panel h3{font-size:12.5px;margin:0 0 7px;font-weight:950;display:flex;align-items:center;justify-content:space-between;color:#243044;gap:8px}
+    .panel h3 span{font-size:10.5px;color:#64748b;white-space:nowrap}
+    .control{display:grid;grid-template-columns:76px 1fr 56px;gap:7px;align-items:center;margin:6px 0;font-size:11.5px;color:#334155}
+    input[type=range]{width:100%;accent-color:var(--blue)}
+    .val{text-align:right;font-weight:950;font-variant-numeric:tabular-nums;color:#111827}
+    .toggles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    label.toggle{display:flex;align-items:center;gap:5px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:11px;padding:6px 7px;font-size:10.5px;color:#334155;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    label.toggle input{accent-color:var(--blue);margin:0;flex:0 0 auto}
+    .buttons{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+    button{border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:6px 9px;font-size:11.5px;font-weight:950;cursor:pointer;transition:transform .12s ease,background .12s ease}
+    button:hover{transform:translateY(-1px);background:#dbeafe}
+    button.active{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+    .footer{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#64748b;font-size:11px;min-height:22px}
+    .legend{display:flex;gap:11px;flex-wrap:wrap}
+    .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:-1px}
+    .deviceBox{order:var(--pd-device-order,1)}
+    .metrics{order:var(--pd-metrics-order,2)}
+    .controlStrip{order:var(--pd-controls-order,3)}
+    .chartBox{order:var(--pd-chart-order,1)}
+    .historyBox{order:var(--pd-history-order,2)}
+    body.hide-header .header,body.hide-subtitle .subtitle,body.hide-chips .topchips,body.hide-footer .footer,body.hide-device .deviceBox,body.hide-metrics .metrics,body.hide-controls .controlStrip,body.hide-chart .chartBox,body.hide-history .historyBox,body.hide-explain .explain{display:none}
+    body.hide-right .right,body.hide-left .left{display:none}
+    body.hide-right .main{grid-template-columns:1fr}
+    body.hide-left .main{grid-template-columns:1fr}
+    @media (max-width:1180px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.controlStrip{grid-template-columns:1fr}.toggles{grid-template-columns:repeat(2,minmax(0,1fr))}.left{grid-template-rows:minmax(300px,1fr) auto}}
+    @media (max-width:980px){.main{grid-template-columns:1fr}.right{grid-template-columns:1fr 1fr;grid-template-rows:1fr}.stage{overflow:auto;height:auto;min-height:100vh}.box{min-height:270px}.topchips{justify-content:flex-start}.footer{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+<div class="stage">
+  <div class="header">
+    <div>
+      <h1 class="title">PD-SOI 交互式 FBE 物理过程模拟器</h1>
+      <p class="subtitle">演示浮体效应链条：撞击电离 → 空穴累积 → Vbody 升高 → Vth 降低 → I<sub>D</sub>-V<sub>D</sub> 出现 kink；并加入常见非理想效应。</p>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="card left">
+      <div class="box deviceBox">
+        <div class="boxTitle">器件剖面 / 载流子过程</div>
+        <div class="boxSub">蓝：电子流；红：空穴累积；橙：自热</div>
+        <div class="explain" id="explain">高 V<sub>D</sub> 下漏端强电场触发撞击电离，产生的空穴被 BOX 隔离后在浮置体区累积，体电位上升并拉低阈值。</div>
+        <canvas id="device"></canvas>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="k">浮体电位 Vbody</div><div class="v"><span id="mVb">0.00</span><small> V</small></div></div>
+        <div class="metric"><div class="k">阈值电压 Vth</div><div class="v"><span id="mVth">0.62</span><small> V</small></div></div>
+        <div class="metric"><div class="k">漏极电流 Id</div><div class="v"><span id="mId">0.0</span><small> μA</small></div></div>
+        <div class="metric"><div class="k">撞击电离强度</div><div class="v"><span id="mII">0.00</span></div></div>
+        <div class="metric"><div class="k">器件温度</div><div class="v"><span id="mT">300</span><small> K</small></div></div>
+        <div class="metric"><div class="k">工作区</div><div class="v" id="mRegion">关断</div></div>
+      </div>
+      <div class="controlStrip">
+        <div class="panel">
+          <h3>主控参数 <span>V<sub>G</sub> / V<sub>D</sub></span></h3>
+          <div class="control"><label for="vg">栅压 Vg</label><input id="vg" type="range" min="0" max="3.0" step="0.01" value="1.65"><div class="val"><span id="vgVal">1.65</span> V</div></div>
+          <div class="control"><label for="vd">漏压 Vd</label><input id="vd" type="range" min="0" max="3.2" step="0.01" value="2.70"><div class="val"><span id="vdVal">2.70</span> V</div></div>
+          <div class="control"><label for="ta">环境 T</label><input id="ta" type="range" min="260" max="420" step="1" value="300"><div class="val"><span id="taVal">300</span> K</div></div>
+          <div class="buttons">
+            <button onclick="preset('off')">关断</button><button onclick="preset('linear')">线性</button><button onclick="preset('kink')">Kink</button><button onclick="preset('hot')">自热</button>
+            <button id="sweepBtn" onclick="toggleSweep()">自动扫 Vd</button><button onclick="resetBody()">释放体电荷</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>非理想效应</h3>
+          <div class="toggles">
+            <label class="toggle"><input id="fbe" type="checkbox" checked>浮体 FBE</label>
+            <label class="toggle"><input id="impact" type="checkbox" checked>撞击电离</label>
+            <label class="toggle"><input id="hysteresis" type="checkbox" checked>迟滞/历史</label>
+            <label class="toggle"><input id="dibl" type="checkbox" checked>DIBL</label>
+            <label class="toggle"><input id="clm" type="checkbox" checked>沟长调制</label>
+            <label class="toggle"><input id="mobility" type="checkbox" checked>迁移率退化</label>
+            <label class="toggle"><input id="rs" type="checkbox" checked>串联电阻</label>
+            <label class="toggle"><input id="selfheat" type="checkbox" checked>SOI 自热</label>
+            <label class="toggle"><input id="trap" type="checkbox" checked>陷阱/泄漏</label>
+          </div>
+          <div class="control"><label for="leak">泄放强度</label><input id="leak" type="range" min="0" max="80" step="1" value="18"><div class="val"><span id="leakVal">18</span></div></div>
+          <div class="control"><label for="ion">电离系数</label><input id="ion" type="range" min="0" max="100" step="1" value="54"><div class="val"><span id="ionVal">54</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card right">
+      <div class="box chartBox">
+        <div class="boxTitle">I<sub>D</sub>-V<sub>D</sub>：理想 Bulk vs PD-SOI FBE</div>
+        <div class="boxSub">虚线为理想 Bulk，实线为含 FBE 与非理想效应</div>
+        <canvas id="chart"></canvas>
+      </div>
+      <div class="box historyBox">
+        <div class="boxTitle">Vbody 时间响应</div>
+        <div class="boxSub">显示充电、泄放与迟滞</div>
+        <canvas id="history"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="legend">
+      <span><i class="dot" style="background:#2563eb"></i>电子流 / 沟道电流</span>
+      <span><i class="dot" style="background:#ef4444"></i>空穴累积 / 浮体充电</span>
+      <span><i class="dot" style="background:#f59e0b"></i>SOI 自热</span>
+      <span><i class="dot" style="background:#64748b"></i>理想 Bulk 参考曲线</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const canvases = {device:$('device'), chart:$('chart'), history:$('history')};
+  const ctxs = {};
+  const controls = {
+    vg:$('vg'), vd:$('vd'), ta:$('ta'), leak:$('leak'), ion:$('ion'),
+    fbe:$('fbe'), impact:$('impact'), hysteresis:$('hysteresis'), dibl:$('dibl'), clm:$('clm'),
+    mobility:$('mobility'), rs:$('rs'), selfheat:$('selfheat'), trap:$('trap')
+  };
+  const state = {vb:0.03, tdev:300, phase:0, last:0, fps:60, sweep:false, hist:Array.from({length:190},()=>0.03), dpr:1};
+  const base = {vth0:0.62, k:92, lambda:0.052, etaBody:0.43, dibl:0.055, theta:0.16, rs:2.2, iiStart:0.58};
+
+  function clamp(x,a,b){return Math.max(a,Math.min(b,x));}
+  function parseParam(name, fallback){const v=new URLSearchParams(location.search).get(name);return v==null?fallback:Number(v)||fallback;}
+  state.dpr = Math.max(1, Math.min(2, parseParam('dpr', window.devicePixelRatio || 1)));
+
+  const visualDefaults = {
+    pageBg:'#f4f7fb', bgA:'#fbfdff', bgB:'#eef3f8', glowBlue:'#dbeafe', glowAmber:'#fef3c7',
+    cardBg:'#ffffff', cardBorder:'#94a3b8', boxBg:'#ffffff', boxBg2:'#f9fbff', line:'#d8e0ea',
+    text:'#142033', muted:'#657489', canvasBg:'#f9fbff', chartBg:'#ffffff',
+    accent:'#2563eb', accentSoft:'#60a5fa', carrier:'#ef4444', carrierDark:'#991b1b',
+    heat:'#f59e0b', green:'#10b981', substrate:'#c7d2fe', substrateStroke:'#a5b4fc',
+    boxA:'#fcd34d', boxB:'#f59e0b', siliconA:'#bfdbfe', siliconB:'#60a5fa',
+    electrode:'#1d4ed8', electrodeStroke:'#1e40af', oxide:'#e5e7eb', gate:'#1f2937',
+    chartGrid:'#e5e7eb', chartAxis:'#94a3b8', bulkLine:'#64748b', noteBg:'#f8fafc',
+    noteBorder:'#cbd5e1', fontScale:1, lineScale:1, particleScale:1, leftWeight:1.08,
+    leftTopWeight:1, rightTopWeight:1.12, deviceOrder:1, metricsOrder:2, controlsOrder:3,
+    chartOrder:1, historyOrder:2, cardRadius:22, boxRadius:17, canvasRadius:12, shadow:1, glow:1,
+    showHeader:true, showSubtitle:true, showChips:true, showFooter:true, showDevice:true,
+    showMetrics:true, showControls:true, showChart:true, showHistory:true, showExplain:true
+  };
+  let visual = {...visualDefaults};
+
+  function isHex(v){return typeof v==='string' && /^#[0-9a-fA-F]{6}$/.test(v);}
+  function hexToRgb(hex){const n=parseInt(hex.slice(1),16);return {r:(n>>16)&255,g:(n>>8)&255,b:n&255};}
+  function alpha(hex,a){const c=hexToRgb(isHex(hex)?hex:'#000000');return `rgba(${c.r},${c.g},${c.b},${a})`;}
+  function font(weight,size){return `${weight} ${Math.max(8,size*visual.fontScale)}px Microsoft YaHei`;}
+  function styleNum(v,min,max,fallback){v=Number(v);return Number.isFinite(v)?clamp(v,min,max):fallback;}
+  function applyVisualConfig(next){
+    const merged = {...visualDefaults, ...(next || {})};
+    Object.keys(visualDefaults).forEach(k=>{if(typeof visualDefaults[k]==='string' && !isHex(merged[k])) merged[k]=visualDefaults[k];});
+    merged.fontScale=styleNum(merged.fontScale,.82,1.25,1);
+    merged.lineScale=styleNum(merged.lineScale,.65,1.7,1);
+    merged.particleScale=styleNum(merged.particleScale,.35,1.9,1);
+    merged.leftWeight=styleNum(merged.leftWeight,.86,1.28,1.08);
+    merged.leftTopWeight=styleNum(merged.leftTopWeight,.55,1.65,1);
+    merged.rightTopWeight=styleNum(merged.rightTopWeight,.45,1.55,1.12);
+    merged.deviceOrder=Math.round(styleNum(merged.deviceOrder,1,3,1));
+    merged.metricsOrder=Math.round(styleNum(merged.metricsOrder,1,3,2));
+    merged.controlsOrder=Math.round(styleNum(merged.controlsOrder,1,3,3));
+    merged.chartOrder=Math.round(styleNum(merged.chartOrder,1,2,1));
+    merged.historyOrder=Math.round(styleNum(merged.historyOrder,1,2,2));
+    merged.cardRadius=styleNum(merged.cardRadius,4,28,22);
+    merged.boxRadius=styleNum(merged.boxRadius,4,24,17);
+    merged.canvasRadius=styleNum(merged.canvasRadius,0,18,12);
+    merged.shadow=styleNum(merged.shadow,0,1,1);
+    merged.glow=styleNum(merged.glow,0,1,1);
+    ['showHeader','showSubtitle','showChips','showFooter','showDevice','showMetrics','showControls','showChart','showHistory','showExplain'].forEach(k=>merged[k]=merged[k]!==false);
+    visual = merged;
+    const root = document.documentElement;
+    root.style.setProperty('--bg', visual.pageBg);
+    root.style.setProperty('--ink', visual.text);
+    root.style.setProperty('--muted', visual.muted);
+    root.style.setProperty('--line', visual.line);
+    root.style.setProperty('--blue', visual.accent);
+    root.style.setProperty('--red', visual.carrier);
+    root.style.setProperty('--amber', visual.heat);
+    root.style.setProperty('--green', visual.green);
+    root.style.setProperty('--pd-main-cols', `${visual.leftWeight}fr ${Math.max(.62, 2-visual.leftWeight)}fr`);
+    root.style.setProperty('--pd-left-rows', `${visual.leftTopWeight}fr auto auto`);
+    root.style.setProperty('--pd-right-rows', `${visual.rightTopWeight}fr ${Math.max(.45,2-visual.rightTopWeight)}fr`);
+    root.style.setProperty('--pd-device-order', visual.deviceOrder);
+    root.style.setProperty('--pd-metrics-order', visual.metricsOrder);
+    root.style.setProperty('--pd-controls-order', visual.controlsOrder);
+    root.style.setProperty('--pd-chart-order', visual.chartOrder);
+    root.style.setProperty('--pd-history-order', visual.historyOrder);
+    root.style.setProperty('--pd-card-bg', alpha(visual.cardBg,.95));
+    root.style.setProperty('--pd-card-border', alpha(visual.cardBorder,.36));
+    root.style.setProperty('--pd-card-radius', `${visual.cardRadius}px`);
+    root.style.setProperty('--pd-box-radius', `${visual.boxRadius}px`);
+    root.style.setProperty('--pd-canvas-radius', `${visual.canvasRadius}px`);
+    root.style.setProperty('--pd-box-bg', visual.boxBg);
+    root.style.setProperty('--pd-box-bg2', visual.boxBg2);
+    root.style.setProperty('--pd-note-bg', visual.noteBg);
+    root.style.setProperty('--pd-note-border', alpha(visual.noteBorder,.42));
+    root.style.setProperty('--pd-font-scale', visual.fontScale);
+    root.style.setProperty('--pd-card-shadow', visual.shadow ? '0 18px 48px rgba(15,23,42,.13)' : 'none');
+    document.body.style.background =
+      `radial-gradient(circle at 12% 10%,${alpha(visual.glowBlue,.14*visual.glow)},transparent 28%),` +
+      `radial-gradient(circle at 88% 8%,${alpha(visual.glowAmber,.14*visual.glow)},transparent 24%),` +
+      `linear-gradient(180deg,${visual.bgA},${visual.bgB})`;
+    document.body.classList.toggle('hide-header', !visual.showHeader);
+    document.body.classList.toggle('hide-subtitle', !visual.showSubtitle);
+    document.body.classList.toggle('hide-chips', !visual.showChips);
+    document.body.classList.toggle('hide-footer', !visual.showFooter);
+    document.body.classList.toggle('hide-device', !visual.showDevice);
+    document.body.classList.toggle('hide-metrics', !visual.showMetrics);
+    document.body.classList.toggle('hide-controls', !visual.showControls);
+    document.body.classList.toggle('hide-chart', !visual.showChart);
+    document.body.classList.toggle('hide-history', !visual.showHistory);
+    document.body.classList.toggle('hide-explain', !visual.showExplain);
+    document.body.classList.toggle('hide-left', !visual.showDevice && !visual.showMetrics && !visual.showControls);
+    document.body.classList.toggle('hide-right', !visual.showChart && !visual.showHistory);
+    drawAll();
+  }
+  async function loadVisualConfig(){
+    try{
+      const r = await fetch('pd_soi_fbe_visual_config.json?ts=' + Date.now(), {cache:'no-store'});
+      if(r.ok) applyVisualConfig(await r.json());
+    }catch(e){}
+  }
+  window.addEventListener('message', e => {
+    if(e.data && e.data.type === 'pd-soi-fbe-visual-config') applyVisualConfig(e.data.config);
+  });
+  window.PDSOIFBEPreview = {setConfig:applyVisualConfig, getConfig:()=>({...visual})};
+
+  function params(){return {
+    vg:+controls.vg.value, vd:+controls.vd.value, ta:+controls.ta.value, leak:+controls.leak.value, ion:+controls.ion.value,
+    fbe:controls.fbe.checked, impact:controls.impact.checked, hysteresis:controls.hysteresis.checked, dibl:controls.dibl.checked,
+    clm:controls.clm.checked, mobility:controls.mobility.checked, rs:controls.rs.checked, selfheat:controls.selfheat.checked, trap:controls.trap.checked
+  };}
+
+  function resizeCanvas(c){
+    const r = c.getBoundingClientRect();
+    const d = state.dpr;
+    const w = Math.max(300, Math.round(r.width*d));
+    const h = Math.max(220, Math.round(r.height*d));
+    if(c.width!==w || c.height!==h){c.width=w;c.height=h;}
+    return {ctx:c.getContext('2d'), w, h, d};
+  }
+  function resizeAll(){Object.keys(canvases).forEach(k=>ctxs[k]=resizeCanvas(canvases[k])); drawAll();}
+  window.addEventListener('resize', resizeAll);
+
+  function model(p, vd, vb, temp, ideal){
+    const tbias = 0.00075*(temp-300);
+    const bodyShift = ideal || !p.fbe ? 0 : base.etaBody*Math.sqrt(Math.max(0,vb));
+    const diblShift = (!ideal && p.dibl) ? base.dibl*vd : 0;
+    const vth = clamp(base.vth0 + tbias - bodyShift - diblShift, 0.05, 1.2);
+    const vov = p.vg - vth;
+    let id = 0;
+    let region = '关断';
+    if(vov <= 0){
+      const vt = 0.026*(temp/300);
+      const sub = 0.030*Math.exp(clamp(vov/(1.65*vt), -8, 3));
+      id = sub*(1-Math.exp(-vd/0.07));
+      region = '关断';
+    }else{
+      const muT = p.mobility ? Math.pow(300/temp,1.35)/(1+base.theta*Math.max(0,p.vg-vth)) : 1;
+      const k = base.k*muT;
+      if(vd < vov){
+        id = k*((vov*vd)-0.5*vd*vd);
+        region = '线性';
+      }else{
+        id = 0.5*k*vov*vov;
+        region = '饱和';
+        if(p.clm) id *= 1 + base.lambda*Math.max(0,vd-vov);
+      }
+    }
+    const highField = Math.max(0, vd - Math.max(0.18, vov) - base.iiStart);
+    let ii = 0;
+    if(!ideal && p.fbe && p.impact && id>0.02){
+      ii = (p.ion/54) * 0.0105 * id * highField*highField * (1-Math.exp(-2.2*highField));
+    }
+    if(!ideal && p.rs){ id = id/(1 + base.rs*id/820); }
+    id = Math.max(0,id);
+    if(!ideal && vb>.33 && ii>.04) region='Kink';
+    if(!ideal && vb>.62) region='寄生BJT风险';
+    return {id, vth, vov, region, highField, ii};
+  }
+
+  function quasiVbForCurve(p, vd){
+    if(!p.fbe || !p.impact) return 0;
+    const m0 = model({...p, fbe:false}, vd, 0, p.ta, true);
+    const vov = Math.max(0, p.vg - base.vth0);
+    const field = Math.max(0, vd - Math.max(.2,vov) - base.iiStart);
+    let vb = (p.ion/54) * 0.55 * (1-Math.exp(-1.55*field)) * (m0.id/(m0.id+90));
+    if(p.trap) vb += 0.04*Math.tanh(1.8*field);
+    vb *= (82/(82+p.leak));
+    return clamp(vb,0,.78);
+  }
+
+  function updatePhysics(dt){
+    const p = params();
+    if(state.sweep){
+      const t = performance.now()/1000;
+      const x = (Math.sin(t*.75)+1)/2;
+      controls.vd.value = (0.12 + 3.05*x).toFixed(2);
+    }
+    const p2 = params();
+    const r = model(p2, p2.vd, state.vb, state.tdev, false);
+    let charge = r.ii;
+    let leakage = (p2.leak/100) * (0.035 + 0.12*state.vb) + 0.018*state.vb;
+    if(p2.trap) leakage *= (0.72 + 0.30*Math.exp(-state.vb*4));
+    if(state.vb>0.64) leakage += 0.78*Math.pow(state.vb-0.64,2) + 0.10*(state.vb-0.64);
+    if(!p2.fbe){charge=0; leakage += 2.2*state.vb;}
+    const tauScale = p2.hysteresis ? 1 : 0.22;
+    state.vb = clamp(state.vb + (charge*1.35 - leakage)*dt/tauScale, 0, .82);
+    const power = r.id*p2.vd/1000; // μA*V -> mW scale for display model
+    const targetT = p2.selfheat ? p2.ta + 36*power*(1 + 0.85*Math.max(0,p2.vd-1.6)) : p2.ta;
+    state.tdev += (targetT - state.tdev)*dt/(p2.selfheat ? 1.15 : .28);
+    state.phase += dt*1.7*(0.45 + p2.vd);
+    state.hist.push(state.vb); if(state.hist.length>190) state.hist.shift();
+    updateUI(p2, r);
+  }
+
+  function updateUI(p, r){
+    $('vgVal').textContent = p.vg.toFixed(2); $('vdVal').textContent = p.vd.toFixed(2); $('taVal').textContent = p.ta.toFixed(0);
+    $('leakVal').textContent = p.leak.toFixed(0); $('ionVal').textContent = p.ion.toFixed(0);
+    const now = model(p,p.vd,state.vb,state.tdev,false);
+    $('mVb').textContent = state.vb.toFixed(2); $('mVth').textContent = now.vth.toFixed(2); $('mId').textContent = now.id.toFixed(1);
+    $('mII').textContent = now.ii.toFixed(2); $('mT').textContent = state.tdev.toFixed(0); $('mRegion').textContent = now.region;
+    let text = '高 Vd 下，漏端强电场触发撞击电离，空穴被 BOX 隔离后在浮置体区累积；Vbody 上升会拉低 Vth，使 Id-Vd 曲线出现 kink。';
+    if(!p.fbe) text = '已关闭浮体 FBE：体电荷被快速泄放，曲线更接近普通体接触 MOSFET。';
+    else if(now.vov<=0) text = '栅压低于阈值，沟道尚未打开；只有很弱的亚阈值电流和泄漏过程。';
+    else if(now.ii>.08 && state.vb<.25) text = '撞击电离开始增强，漏端附近正在产生电子-空穴对，空穴开始注入浮置体区。';
+    else if(state.vb>.38 && state.vb<.62) text = '浮体电位明显升高，阈值下降，沟道更容易打开，电流出现突增，这就是 kink 的可视化表现。';
+    else if(state.vb>=.62) text = 'Vbody 已经很高，源/体结接近强正偏，教学模型标记为寄生 BJT 风险区。';
+    $('explain').innerHTML = text;
+  }
+
+  function rr(ctx,x,y,w,h,r,fill,stroke){
+    ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+    if(fill){ctx.fillStyle=fill;ctx.fill();} if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}
+  }
+
+  function drawDevice(){
+    const {ctx,w,h}=ctxs.device; if(!ctx) return;
+    ctx.clearRect(0,0,w,h); ctx.save();
+    ctx.fillStyle=visual.canvasBg; ctx.fillRect(0,0,w,h);
+    const s=Math.min(w/900,h/490);
+    ctx.translate((w-900*s)/2,(h-490*s)/2);
+    ctx.scale(s,s);
+    const p=params(); const now=model(p,p.vd,state.vb,state.tdev,false);
+    const vbLevel=clamp(state.vb/.78,0,1), idLevel=clamp(now.id/220,0,1), heat=clamp((state.tdev-p.ta)/95,0,1);
+    ctx.fillStyle=visual.canvasBg; ctx.fillRect(0,0,900,490);
+    if(heat>.01){const g=ctx.createRadialGradient(680,250,20,680,250,260);g.addColorStop(0,alpha(visual.heat,.28*heat));g.addColorStop(1,alpha(visual.heat,0));ctx.fillStyle=g;ctx.fillRect(420,50,430,360);}
+    rr(ctx,80,360,740,58,12,visual.substrate,visual.substrateStroke); ctx.fillStyle=visual.muted; ctx.font=font('800',16); ctx.fillText('Substrate 衬底',105,396);
+    rr(ctx,80,314,740,38,8,visual.boxA,visual.boxB); ctx.fillStyle='#78350f'; ctx.font=font('800',14); ctx.fillText('BOX 埋氧层：电隔离 + 热隔离',105,339);
+    rr(ctx,80,194,740,100,12,visual.siliconA,visual.siliconB); ctx.fillStyle='#1e3a8a'; ctx.font=font('800',13); ctx.fillText('Thin Si Film 薄硅层',105,216);
+    const sdY=174, sdH=120;
+    rr(ctx,105,sdY,138,sdH,13,visual.electrode,visual.electrodeStroke); rr(ctx,657,sdY,138,sdH,13,visual.electrode,visual.electrodeStroke);
+    ctx.fillStyle='#fff'; ctx.font=font('950',21); ctx.fillText('Source',132,sdY+48); ctx.fillText('Drain',696,sdY+48); ctx.font=font('800',13); ctx.fillStyle=alpha(visual.accentSoft,.28); ctx.fillText('n+ 源极',146,sdY+76); ctx.fillText('n+ 漏极',707,sdY+76);
+    rr(ctx,288,136,324,18,5,visual.oxide,visual.line); ctx.fillStyle=visual.muted; ctx.font=font('800',12); ctx.fillText('Gate Oxide 栅氧层',397,131);
+    rr(ctx,270,78,360,54,11,visual.gate,'#0f172a'); ctx.fillStyle='#fff'; ctx.font=font('950',20); ctx.fillText(`Gate  Vg = ${p.vg.toFixed(2)} V`,378,111);
+    const bodyY=202, bodyH=48;
+    const bodyG=ctx.createLinearGradient(250,bodyY,650,bodyY+bodyH); bodyG.addColorStop(0,alpha(visual.green,.10+.20*vbLevel)); bodyG.addColorStop(1,alpha(visual.carrier,.08+.32*vbLevel));
+    rr(ctx,245,bodyY,410,bodyH,20,bodyG,alpha(visual.green,.55)); ctx.fillStyle='#064e3b'; ctx.font=font('950',14); ctx.fillText(`Floating Body  Vbody = ${state.vb.toFixed(2)} V`,348,bodyY+30);
+    const ch=clamp(Math.max(0,now.vov)/1.85,0,1); rr(ctx,245,250,410,18+22*ch,16,alpha(visual.accent,.13+.58*ch),null);
+    ctx.fillStyle=ch>.45?'#eff6ff':'#1e3a8a'; ctx.font=font('900',13); ctx.fillText(ch>.12?'反型沟道形成 / electron channel':'沟道未完全形成',360,270);
+    ctx.lineWidth=2*visual.lineScale; ctx.setLineDash([6,6]); ctx.strokeStyle=alpha(visual.accent,.25+.45*clamp(p.vg/3,0,1));
+    for(let i=0;i<8;i++){const x=315+i*40;ctx.beginPath();ctx.moveTo(x,136);ctx.lineTo(x,194+7*Math.sin(state.phase+i));ctx.stroke();} ctx.setLineDash([]);
+    const drainFieldX=682, drainFieldY=230;
+    const field=clamp(now.highField/1.65,0,1); const fg=ctx.createRadialGradient(drainFieldX,drainFieldY,8,drainFieldX,drainFieldY,118); fg.addColorStop(0,alpha(visual.carrier,.14+.56*field)); fg.addColorStop(1,alpha(visual.carrier,0)); ctx.fillStyle=fg; ctx.beginPath();ctx.arc(drainFieldX,drainFieldY,122,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=visual.carrierDark; ctx.font=font('900',12); ctx.fillText('漏端强电场 / impact ionization',596,151);
+    ctx.lineCap='round'; ctx.lineWidth=(4+7*idLevel)*visual.lineScale; ctx.strokeStyle=alpha(visual.accent,.24+.62*idLevel); ctx.beginPath();ctx.moveTo(245,184);ctx.bezierCurveTo(365,122,550,122,drainFieldX,184);ctx.stroke(); ctx.fillStyle=ctx.strokeStyle; ctx.beginPath();ctx.moveTo(drainFieldX,184);ctx.lineTo(drainFieldX-20,171);ctx.lineTo(drainFieldX-15,197);ctx.closePath();ctx.fill();
+    const eCount=38; ctx.textAlign='center'; for(let i=0;i<eCount;i++){const t=(i/eCount + state.phase*.07)%1; const x=252+395*t; const y=183-43*Math.sin(Math.PI*t)+5*Math.sin(i*1.7+state.phase*2); ctx.fillStyle=alpha(visual.accent,.16+.70*ch); ctx.beginPath();ctx.arc(x,y,(2.5+2.0*ch)*visual.particleScale,0,Math.PI*2);ctx.fill(); ctx.fillStyle=visual.accentDark; ctx.font=font('950',11); ctx.fillText('-',x,y-7);}
+    const holes=Math.round(8+42*vbLevel+20*field); for(let i=0;i<holes;i++){const a=i*2.399+state.phase*.65, rad=28+145*((i*37)%100)/100; const cx=650-rad*.72*Math.abs(Math.cos(a))*.85, cy=250+Math.sin(a)*22+(((i*19)%100)/100-.5)*24; ctx.fillStyle=alpha(visual.carrier,.17+.66*vbLevel); ctx.beginPath();ctx.arc(cx,cy,(2.5+2.8*vbLevel)*visual.particleScale,0,Math.PI*2);ctx.fill(); ctx.fillStyle=visual.carrierDark; ctx.font=font('950',11); ctx.fillText('+',cx,cy-7);}
+    ctx.textAlign='left';
+    rr(ctx,672,96,136,31,15,'rgba(255,255,255,.9)',visual.line); ctx.fillStyle='#334155'; ctx.font=font('950',13); ctx.fillText(`Vd = ${p.vd.toFixed(2)} V`,700,116);
+    ctx.lineWidth=10*visual.lineScale; ctx.strokeStyle=visual.line; ctx.beginPath();ctx.arc(790,66,36,Math.PI*.75,Math.PI*2.25);ctx.stroke(); ctx.strokeStyle=visual.green; ctx.beginPath();ctx.arc(790,66,36,Math.PI*.75,Math.PI*.75+Math.PI*1.5*vbLevel);ctx.stroke(); ctx.fillStyle='#0f172a'; ctx.font=font('950',13);ctx.textAlign='center';ctx.fillText('Vbody',790,64);ctx.fillText(state.vb.toFixed(2)+'V',790,82);ctx.textAlign='left';
+    ctx.restore();
+  }
+
+  function drawChart(){
+    const {ctx,w,h}=ctxs.chart; if(!ctx) return;
+    ctx.clearRect(0,0,w,h); const p=params(), ml=54,mr=20,mt=30,mb=38,pw=w-ml-mr,ph=h-mt-mb;
+    ctx.fillStyle=visual.chartBg;ctx.fillRect(0,0,w,h); ctx.strokeStyle=visual.chartGrid; ctx.lineWidth=1*visual.lineScale; ctx.font=font('500',11); ctx.fillStyle=visual.muted;
+    for(let i=0;i<=5;i++){const y=mt+ph*i/5;ctx.beginPath();ctx.moveTo(ml,y);ctx.lineTo(w-mr,y);ctx.stroke();const x=ml+pw*i/5;ctx.beginPath();ctx.moveTo(x,mt);ctx.lineTo(x,mt+ph);ctx.stroke();ctx.fillText((3.2*i/5).toFixed(1),x-8,mt+ph+22);} ctx.strokeStyle=visual.chartAxis;ctx.beginPath();ctx.moveTo(ml,mt);ctx.lineTo(ml,mt+ph);ctx.lineTo(w-mr,mt+ph);ctx.stroke();ctx.fillStyle=visual.muted;ctx.fillText('Id / μA',14,mt+9);ctx.fillText('Vd / V',w/2-18,h-12);
+    let ideal=[], fbe=[], maxY=1; for(let i=0;i<=96;i++){const vd=3.2*i/96; const a=model({...p,fbe:false},vd,0,p.ta,true); const qvb=quasiVbForCurve(p,vd); const b=model(p,vd,qvb,state.tdev,false); ideal.push([vd,a.id]); fbe.push([vd,b.id]); maxY=Math.max(maxY,a.id,b.id);} maxY*=1.18;
+    const map=pt=>[ml+pw*pt[0]/3.2, mt+ph*(1-pt[1]/maxY)];
+    function path(arr){ctx.beginPath();arr.forEach((pt,i)=>{const [x,y]=map(pt); if(i)ctx.lineTo(x,y); else ctx.moveTo(x,y);});}
+    path(fbe); ctx.lineTo(w-mr,mt+ph);ctx.lineTo(ml,mt+ph);ctx.closePath(); const g=ctx.createLinearGradient(0,mt,0,mt+ph);g.addColorStop(0,alpha(visual.accent,.18));g.addColorStop(1,alpha(visual.accent,0));ctx.fillStyle=g;ctx.fill();
+    ctx.save();ctx.strokeStyle=alpha(visual.bulkLine,.78);ctx.lineWidth=2*visual.lineScale;ctx.setLineDash([7,6]);path(ideal);ctx.stroke();ctx.restore();
+    ctx.strokeStyle=visual.accent;ctx.lineWidth=4*visual.lineScale;ctx.lineCap='round';path(fbe);ctx.stroke();
+    const now=model(p,p.vd,state.vb,state.tdev,false); const [px,py]=map([p.vd,now.id]);ctx.strokeStyle=alpha(visual.text,.42);ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(px,mt);ctx.lineTo(px,mt+ph);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=visual.accent;ctx.beginPath();ctx.arc(px,py,6*visual.lineScale,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.86)';rr(ctx,ml+8,mt+6,178,43,10,'rgba(255,255,255,.88)',visual.line);ctx.fillStyle='#334155';ctx.font=font('900',11);ctx.fillText('—— PD-SOI 含 FBE',ml+18,mt+24); ctx.fillStyle=visual.muted;ctx.fillText('- - 理想 Bulk 参考',ml+18,mt+42); if(p.fbe&&p.impact){ctx.fillStyle='rgba(255,255,255,.88)';rr(ctx,ml+pw*.44,mt+8,190,28,10,'rgba(255,255,255,.88)',alpha(visual.carrier,.18));ctx.fillStyle=visual.carrierDark;ctx.font=font('900',11);ctx.fillText('kink：Vbody↑ → Vth↓ → Id↑',ml+pw*.44+10,mt+27);}
+  }
+
+  function drawHistory(){
+    const {ctx,w,h}=ctxs.history; if(!ctx) return;
+    ctx.clearRect(0,0,w,h); const ml=48,mr=20,mt=28,mb=32,pw=w-ml-mr,ph=h-mt-mb; ctx.fillStyle=visual.chartBg;ctx.fillRect(0,0,w,h);ctx.strokeStyle=visual.chartGrid;ctx.lineWidth=1*visual.lineScale;
+    for(let i=0;i<=4;i++){const y=mt+ph*i/4;ctx.beginPath();ctx.moveTo(ml,y);ctx.lineTo(w-mr,y);ctx.stroke();}
+    ctx.strokeStyle=visual.chartAxis;ctx.beginPath();ctx.moveTo(ml,mt);ctx.lineTo(ml,mt+ph);ctx.lineTo(w-mr,mt+ph);ctx.stroke(); ctx.fillStyle=visual.muted;ctx.font=font('500',11);ctx.fillText('Vbody',4,mt+8);ctx.fillText('time',w-52,h-12);
+    const arr=state.hist; ctx.beginPath();arr.forEach((v,i)=>{const x=ml+pw*i/(arr.length-1), y=mt+ph*(1-clamp(v/.82,0,1)); if(i)ctx.lineTo(x,y); else ctx.moveTo(x,y);});ctx.strokeStyle=visual.green;ctx.lineWidth=4*visual.lineScale;ctx.lineCap='round';ctx.stroke();
+    const y=mt+ph*(1-.38/.82);ctx.setLineDash([6,6]);ctx.strokeStyle=alpha(visual.carrier,.50);ctx.lineWidth=2*visual.lineScale;ctx.beginPath();ctx.moveTo(ml,y);ctx.lineTo(w-mr,y);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=visual.carrierDark;ctx.font=font('900',11);ctx.fillText('明显 FBE / kink 触发区',ml+8,y-8);
+  }
+
+  function drawAll(){drawDevice();drawChart();drawHistory();}
+  function tick(ts){if(!state.last) state.last=ts; const interval=1000/state.fps; if(ts-state.last>=interval-1){const dt=Math.min(.06,(ts-state.last)/1000); state.last=ts; updatePhysics(dt); drawAll();} requestAnimationFrame(tick);}
+
+  window.preset = function(type){
+    if(type==='off'){controls.vg.value=.46; controls.vd.value=1.1; controls.ta.value=300; controls.leak.value=42;}
+    if(type==='linear'){controls.vg.value=1.82; controls.vd.value=.54; controls.ta.value=300; controls.leak.value=24;}
+    if(type==='kink'){controls.vg.value=1.64; controls.vd.value=2.78; controls.ta.value=300; controls.leak.value=15;}
+    if(type==='hot'){controls.vg.value=2.22; controls.vd.value=2.66; controls.ta.value=330; controls.leak.value=10;}
+    updatePhysics(.016); drawAll();
+  };
+  window.resetBody = function(){state.vb=0; state.tdev=+controls.ta.value; state.hist=Array.from({length:190},()=>0); drawAll();};
+  window.toggleSweep = function(){state.sweep=!state.sweep; $('sweepBtn').classList.toggle('active',state.sweep);};
+  window.setFps = function(v){
+    state.fps=v;
+    if($('fpsText')) $('fpsText').textContent=v+' FPS';
+    [60,45,30].forEach(f=>{ if($('fps'+f)) $('fps'+f).classList.toggle('active',f===v); });
+  };
+
+  Object.values(controls).forEach(el=>el.addEventListener('input',()=>{updatePhysics(.016); drawAll();}));
+  resizeAll(); applyVisualConfig({}); loadVisualConfig(); updatePhysics(.016); drawAll(); requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
