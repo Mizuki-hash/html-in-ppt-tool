@@ -2,6 +2,16 @@
 
 一个把本地 HTML 可视化页面放进 PowerPoint 的小工具。
 
+## 效果示例
+
+### B+ Tree 可视化
+
+![B+ Tree 可视化在 PPT 中的效果](docs/images/demo-btree.png)
+
+### 勾股定理可视化
+
+![勾股定理可视化在 PPT 中的效果](docs/images/demo-pythagorean.png)
+
 适合这种场景：
 
 - 用 GPT 生成了一个单文件 HTML 可视化页面；
