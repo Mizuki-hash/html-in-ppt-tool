@@ -93,6 +93,7 @@ soi_interactive_visual.html
 可以这样要求：
 
 ```text
+{{你想要可视化的内容}}
 请生成一个单文件 HTML，可直接在浏览器打开。
 CSS 和 JS 都写在同一个 HTML 里。
 不要使用 CDN、npm、外网资源或后端接口。
